@@ -1,27 +1,29 @@
 import React, {useState, useEffect} from 'react';
+
 import {
   ScrollView,
   Text,
   View,
   Modal,
-  Button,
   StyleSheet,
   Pressable,
 } from 'react-native';
+
+import NodeView from './NodeView';
 
 interface WidgetTreeProps {
   children: React.ReactNode;
 }
 
-interface TreeNode {
+export interface TreeNode {
   type: string;
   children: TreeNode[];
+  isExpanded: boolean;
 }
 
 const WidgetTree: React.FC<WidgetTreeProps> = ({children}) => {
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [treeInfo, setTreeInfo] = useState<TreeNode[]>([]);
-  const [clickedNodeIndex, setClickedNodeIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (children) {
@@ -31,16 +33,40 @@ const WidgetTree: React.FC<WidgetTreeProps> = ({children}) => {
   }, [children]);
 
   const traverseTree = (nodes: React.ReactNode): TreeNode[] => {
-    const childrenArray = React.Children.toArray(nodes);
     const info: TreeNode[] = [];
 
-    childrenArray.forEach(child => {
+    React.Children.forEach(nodes, child => {
       if (React.isValidElement(child)) {
         const childType = getChildType(child);
         const childNode: TreeNode = {
           type: childType,
-          children: traverseTree(child.props.children),
+          children: [],
+          isOpen: false,
         };
+
+        if (child.props.children) {
+          // Recursively traverse child components
+          childNode.children = traverseTree(child.props.children);
+        }
+
+        info.push(childNode);
+      } else if (typeof child === 'function') {
+        // Handle functional components
+        const childNode: TreeNode = {
+          type: child.name || 'FunctionalComponent',
+          children: [],
+          isExpanded: false,
+        };
+
+        info.push(childNode);
+      } else {
+        // Handle other types of children (such as text nodes)
+        const childNode: TreeNode = {
+          type: typeof child === 'string' ? 'Text' : 'Unknown',
+          children: [],
+          isExpanded: false,
+        };
+
         info.push(childNode);
       }
     });
@@ -48,7 +74,7 @@ const WidgetTree: React.FC<WidgetTreeProps> = ({children}) => {
     return info;
   };
 
-  const getChildType = (child: React.ReactElement): string => {
+  const getChildType = (child: React.ReactElement | any): string => {
     if (typeof child.type === 'string') {
       return child.type;
     } else if (child.type.displayName) {
@@ -63,25 +89,20 @@ const WidgetTree: React.FC<WidgetTreeProps> = ({children}) => {
   };
 
   const renderTreeNode = (node: TreeNode, index: number, depth: number) => {
-    const handlePress = () => {
-      setClickedNodeIndex(index === clickedNodeIndex ? null : index);
-    };
-
     return (
-      <View key={index} style={styles.nodeContainer}>
-        <Pressable onPress={handlePress}>
-          <Text style={styles.nodeName}>{node.type}</Text>
-        </Pressable>
-        {clickedNodeIndex === index &&
-          node.children.map((childNode, childIndex) =>
-            renderTreeNode(childNode, childIndex, depth + 1),
-          )}
-      </View>
+      <NodeView
+        key={index}
+        node={node}
+        renderTreeNode={renderTreeNode}
+        depth={depth}
+      />
     );
   };
 
   const visualizeTree = () => {
     setModalVisible(true);
+    const info = traverseTree(children);
+    setTreeInfo(info);
   };
 
   return (
@@ -95,9 +116,13 @@ const WidgetTree: React.FC<WidgetTreeProps> = ({children}) => {
           <View style={styles.modalContent}>
             <Text style={styles.modalHeader}>Widget Tree</Text>
             {treeInfo.map((node, index) => renderTreeNode(node, index, 0))}
-            <Button title="Close" onPress={() => setModalVisible(false)} />
           </View>
         </ScrollView>
+        <Pressable
+          style={[styles.floatingButton]}
+          onPress={() => setModalVisible(false)}>
+          <Text style={styles.floatingButtonText}>&#x2715;</Text>
+        </Pressable>
       </Modal>
       <Pressable style={styles.floatingButton} onPress={visualizeTree}>
         <Text style={styles.floatingButtonText}>🌳</Text>
@@ -110,7 +135,11 @@ const WidgetTree: React.FC<WidgetTreeProps> = ({children}) => {
 const styles = StyleSheet.create({
   modalContainer: {
     padding: 20,
+    height: '100%',
+    position: 'absolute',
+    width: '100%',
   },
+
   modalContent: {
     flex: 1,
   },
@@ -135,15 +164,6 @@ const styles = StyleSheet.create({
   },
   floatingButtonText: {
     fontSize: 30,
-  },
-  nodeContainer: {
-    marginLeft: 10,
-    marginBottom: 5,
-  },
-  nodeName: {
-    fontWeight: 'bold',
-    textDecorationLine: 'underline',
-    marginBottom: 5,
   },
 });
 

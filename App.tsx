@@ -24,7 +24,7 @@ import {
   LearnMoreLinks,
   ReloadInstructions,
 } from 'react-native/Libraries/NewAppScreen';
-import {WidgetTree} from './Components';
+import {WidgetTree, TestComponent} from './Components';
 
 type SectionProps = PropsWithChildren<{
   title: string;
@@ -74,6 +74,7 @@ function App(): React.JSX.Element {
           contentInsetAdjustmentBehavior="automatic"
           style={backgroundStyle}>
           <Header />
+          <TestComponent />
           <View
             style={{
               backgroundColor: isDarkMode ? Colors.black : Colors.white,
